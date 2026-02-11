@@ -20,6 +20,7 @@ import {
   CheckCircle,
   AlertCircle,
   Star,
+  RefreshCw,
 } from "lucide-react";
 
 // --- 數獨核心邏輯與工具函數 ---
@@ -235,8 +236,25 @@ const isSafeInBox = (board, rowStart, colStart, num) => {
 const getCoord = (r, c) => `${String.fromCharCode(65 + c)}${r + 1}`;
 
 // --- 邏輯解題引擎 (增強版：符合人類直覺) ---
-const findNextLogicalStep = (board, currentNotes) => {
+/**
+ * 尋找下一個邏輯步驟
+ * @param {Array} board 盤面
+ * @param {Array} currentNotes 當前候選數
+ * @param {number|null} preferredNum 使用者當前聚焦（Highlit）的數字
+ */
+const findNextLogicalStep = (board, currentNotes, preferredNum = null) => {
   const candidatesMap = getAllCandidatesMap(board);
+
+  // 輔助函式：取得目前應該搜尋的數字順序 (優先檢查 preferredNum)
+  const getSearchOrder = () => {
+    const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    if (preferredNum && preferredNum >= 1 && preferredNum <= 9) {
+      return [preferredNum, ...nums.filter((n) => n !== preferredNum)];
+    }
+    return nums;
+  };
+
+  const searchOrder = getSearchOrder();
 
   // 策略 1: 唯一候選數 (Naked Single)
   // 優先檢查唯一候選數，這是最直覺的解法
@@ -261,7 +279,7 @@ const findNextLogicalStep = (board, currentNotes) => {
   // 檢查九宮格 (Box)
   for (let br = 0; br < 3; br++) {
     for (let bc = 0; bc < 3; bc++) {
-      for (let num = 1; num <= 9; num++) {
+      for (const num of searchOrder) {
         let possibleCells = [];
         let exists = false;
         for (let i = 0; i < 3; i++) {
@@ -293,7 +311,7 @@ const findNextLogicalStep = (board, currentNotes) => {
 
   // 檢查行 (Row)
   for (let r = 0; r < SIZE; r++) {
-    for (let num = 1; num <= 9; num++) {
+    for (const num of searchOrder) {
       let possibleCols = [];
       for (let c = 0; c < SIZE; c++) {
         if (board[r][c] === num) {
@@ -316,7 +334,7 @@ const findNextLogicalStep = (board, currentNotes) => {
   }
   // 檢查列 (Col)
   for (let c = 0; c < SIZE; c++) {
-    for (let num = 1; num <= 9; num++) {
+    for (const num of searchOrder) {
       let possibleRows = [];
       for (let r = 0; r < SIZE; r++) {
         if (board[r][c] === num) {
@@ -341,7 +359,7 @@ const findNextLogicalStep = (board, currentNotes) => {
   // 策略 3: 區塊摒除法 (Pointing Pairs/Triples)
   for (let br = 0; br < 3; br++) {
     for (let bc = 0; bc < 3; bc++) {
-      for (let num = 1; num <= 9; num++) {
+      for (const num of searchOrder) {
         let cells = [];
         for (let i = 0; i < 3; i++) {
           for (let j = 0; j < 3; j++) {
@@ -737,15 +755,24 @@ export default function SudokuApp() {
         setErrorCells(newErrors);
       }
 
-      if (isNoteMode && num !== 0) {
+      if (isNoteMode) {
         if (grid[r][c] === EMPTY) {
-          setNotes((prevNotes) => {
-            const newNotes = prevNotes.map((row) => row.map((s) => new Set(s)));
-            const cellNotes = newNotes[r][c];
-            if (cellNotes.has(num)) cellNotes.delete(num);
-            else cellNotes.add(num);
-            return newNotes;
-          });
+          if (num === 0) {
+            // Delete/Backspace in candidate mode: clear all candidates
+            setNotes((prevNotes) => {
+              const newNotes = prevNotes.map((row) => row.map((s) => new Set(s)));
+              newNotes[r][c] = new Set();
+              return newNotes;
+            });
+          } else {
+            setNotes((prevNotes) => {
+              const newNotes = prevNotes.map((row) => row.map((s) => new Set(s)));
+              const cellNotes = newNotes[r][c];
+              if (cellNotes.has(num)) cellNotes.delete(num);
+              else cellNotes.add(num);
+              return newNotes;
+            });
+          }
         }
       } else {
         if (grid[r][c] === num) return;
@@ -803,11 +830,12 @@ export default function SudokuApp() {
       setIsChallengeMode(false);
       setIsPlayingChallenge(false);
       setTimer(0);
+      setHighlightNum(null);
     }
   };
 
-  const handleDifficultyClick = (level) => {
-    if (level === difficulty) return;
+  const handleDifficultyClick = (level, force = false) => {
+    if (!force && level === difficulty) return;
 
     // Prompt if a game is active
     if (isGameActive && !showWinModal) {
@@ -839,7 +867,7 @@ export default function SudokuApp() {
   };
 
   const playNextStep = () => {
-    const step = findNextLogicalStep(grid, notes);
+    const step = findNextLogicalStep(grid, notes, highlightNum);
 
     if (step) {
       setSolveSteps((prev) => [...prev, step]);
@@ -879,8 +907,8 @@ export default function SudokuApp() {
           return newNotes;
         });
 
-        setSelectedCell({ r: step.r, c: step.c });
-        setHighlightNum(step.val);
+        // Removed setHighlightNum(step.val) to avoid confusing global highlighting
+        // setHighlightNum(step.val);
       }
     } else {
       setSolveSteps((prev) => [
@@ -890,27 +918,7 @@ export default function SudokuApp() {
     }
   };
 
-  const autoFillNotes = () => {
-    setHistory((prev) => [
-      ...prev,
-      {
-        grid: grid.map((row) => [...row]),
-        notes: JSON.parse(
-          JSON.stringify(notes.map((row) => row.map((s) => Array.from(s)))),
-        ),
-      },
-    ]);
-    const newNotes = notes.map((row) => row.map((s) => new Set(s)));
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        if (grid[r][c] === EMPTY) {
-          const candidates = getCandidates(grid, r, c);
-          newNotes[r][c] = new Set(candidates);
-        }
-      }
-    }
-    setNotes(newNotes);
-  };
+
 
   // --- Persistence Logic ---
 
@@ -1105,7 +1113,8 @@ export default function SudokuApp() {
   ]);
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col items-center relative pb-20">
+    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col items-center relative pb-20 overflow-hidden">
+
       {/* 確認 Modal (顯示答案) */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -1264,13 +1273,13 @@ export default function SudokuApp() {
       )}
 
       {/* Header */}
-      <header className="w-full bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200 py-4 px-6 flex flex-col sm:flex-row items-center justify-between mb-6 md:mb-8 sticky top-0 z-30 transition-all duration-300">
+      <header className={`w-full ${isChallengeMode ? "bg-white border-b border-slate-200" : "bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200"} py-4 px-6 flex flex-col sm:flex-row items-center justify-between mb-6 md:mb-8 sticky top-0 z-30 transition-all duration-300`}>
         <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-100 animate-pulse-slow">
+            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-100">
               <Brain className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-slate-800 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl md:text-3xl font-bold bg-linear-to-r from-slate-800 to-(--color-brand-electric) bg-clip-text text-transparent">
               數獨大師
             </h1>
           </div>
@@ -1296,33 +1305,20 @@ export default function SudokuApp() {
             </div>
           )}
           <p className="text-slate-400 text-sm font-medium tracking-wide italic">
-            邏輯推演與解題教學
+            邏輯推演與智慧解題
           </p>
         </div>
       </header>
 
       {/* Main Layout Container - 加寬到 max-w-[1700px] */}
-      <div className="flex flex-col xl:flex-row gap-6 items-start w-full max-w-[1600px] px-6 justify-center pb-12">
-        {/* === 左欄: 設定面板 (Desktop: Left, Mobile: Middle) === */}
+      <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 items-start w-full max-w-[1600px] px-3 sm:px-6 justify-center pb-12">
+        {/* === 左欄: 設定面板 (Desktop: Left, Mobile: Top – Inline) === */}
         <div
-          className={`
-                fixed inset-0 z-40 bg-white/95 backdrop-blur-xl p-6 transform transition-all duration-500 xl:relative xl:inset-auto xl:bg-transparent xl:backdrop-blur-none xl:p-0 xl:translate-x-0 xl:w-72 flex flex-col gap-6
-                ${isSettingsOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 xl:opacity-100"}
-            `}
+          className="w-full xl:w-72 flex flex-col gap-4 xl:gap-6 order-2 xl:order-1 shrink-0"
         >
-          {/* Mobile Header in Menu */}
-          <div className="flex xl:hidden justify-between items-center mb-6">
-            <span className="font-bold text-2xl text-slate-800">遊戲設定</span>
-            <button
-              onClick={() => setIsSettingsOpen(false)}
-              className="p-2.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
 
           {/* 挑戰模式卡片 */}
-          <div className="glass-card p-4 rounded-xl flex items-center justify-between group">
+          <div className={`${isChallengeMode ? "bg-white border border-slate-200" : "glass-card"} p-4 rounded-xl flex items-center justify-between group`}>
             <div className="flex items-center gap-3">
               <div
                 className={`p-2 rounded-lg transition-colors ${isChallengeMode ? "bg-amber-100" : "bg-slate-100"}`}
@@ -1337,7 +1333,7 @@ export default function SudokuApp() {
                 >
                   挑戰計時模式
                 </div>
-                <div className="text-[10px] text-slate-400 font-medium tracking-tight">
+                <div className="text-xs text-slate-400 font-medium tracking-tight">
                   紀錄最快解題速度
                 </div>
               </div>
@@ -1353,101 +1349,95 @@ export default function SudokuApp() {
           </div>
 
           {/* 難度選擇卡片 */}
-          <div className="glass-card p-4 rounded-xl flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4 text-indigo-500" />
-                <span className="text-sm font-bold text-slate-800">
-                  難度設定
+          <div className={`transition-all duration-300 ${isChallengeMode ? "hidden xl:block xl:opacity-0 xl:invisible xl:pointer-events-none" : "block opacity-100 visible"}`}>
+            <div className="glass-card p-4 rounded-xl flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-indigo-500" />
+                  <span className="text-base font-bold text-slate-800">
+                    難度設定
+                  </span>
+                </div>
+                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 shadow-sm uppercase">
+                  {["", "入門", "初級", "中級", "高級", "專家"][difficulty]}
                 </span>
               </div>
-              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 shadow-sm uppercase">
-                {["", "入門", "初級", "中級", "高級", "專家"][difficulty]}
-              </span>
-            </div>
 
-            <div className="flex items-center justify-between bg-white/50 p-2 rounded-xl border border-white/50 shadow-inner">
-              {[1, 2, 3, 4, 5].map((level) => (
-                <button
-                  key={level}
-                  onClick={() => handleDifficultyClick(level)}
-                  className="group relative focus:outline-none transition-all hover:scale-110 active:scale-95 p-1"
-                >
-                  <Star
-                    className={`w-8 h-8 md:w-9 md:h-9 transition-all duration-300 ${
-                      level <= difficulty
-                        ? "text-brand-amber fill-brand-amber drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] scale-110"
-                        : "text-slate-200 fill-slate-100 hover:text-slate-300"
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 功能按鈕區 */}
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3">
-              {!isEditMode ? (
-                <button
-                  onClick={startManualInput}
-                  className="w-full py-4 rounded-xl glass-card border-2 border-dashed border-slate-200 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group"
-                >
-                  <Edit3 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                  自訂填寫題目
-                </button>
-              ) : (
-                <div className="glass-card p-2 rounded-xl border-amber-200 bg-amber-50/50">
+              <div className="flex items-center justify-between bg-white/50 p-2 rounded-xl border border-white/50 shadow-inner">
+                {[1, 2, 3, 4, 5].map((level) => (
                   <button
-                    onClick={finishManualInput}
-                    className="w-full py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 font-black tracking-wide transition-all active:scale-95"
+                    key={level}
+                    onClick={() => handleDifficultyClick(level)}
+                    className="group relative focus:outline-none transition-all hover:scale-110 active:scale-95 p-1"
                   >
-                    <Save className="w-5 h-5" /> 鎖定並開始
+                    <Star
+                      className={`w-8 h-8 md:w-9 md:h-9 transition-all duration-300 ${
+                        level <= difficulty
+                          ? "text-(--color-brand-amber) fill-(--color-brand-amber) drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] scale-110"
+                          : "text-slate-200 fill-slate-100 hover:text-slate-300"
+                      }`}
+                    />
                   </button>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
 
-            <div
-              className={`space-y-3 transition-all duration-500 ${isChallengeMode ? "opacity-40 grayscale-[0.5] pointer-events-none blur-[1px]" : ""}`}
-            >
-              <button
-                onClick={autoFillNotes}
-                className="w-full glass-card hover:bg-indigo-50/50 text-indigo-600 px-5 py-4 rounded-xl font-bold flex items-center justify-center gap-3"
-              >
-                <Pencil className="w-5 h-5 text-indigo-500" />
-                自動填寫筆記
-              </button>
+            <div className="flex flex-col gap-3 mt-4">
+              <div className="grid grid-cols-1 gap-3">
+                {!isEditMode ? (
+                  <button
+                    onClick={startManualInput}
+                    className="w-full py-4 rounded-xl glass-card border-2 border-dashed border-slate-200 text-slate-500 font-bold hover:border-indigo-400 hover:text-(--color-brand-electric) hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <Edit3 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                    自訂題目
+                  </button>
+                ) : (
+                  <div className="glass-card p-2 rounded-xl border-amber-200 bg-amber-50/50">
+                    <button
+                      onClick={finishManualInput}
+                      className="w-full py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 font-black tracking-wide transition-all active:scale-95"
+                    >
+                      <Save className="w-5 h-5" /> 鎖定並開始
+                    </button>
+                  </div>
+                )}
 
-              <button
-                onClick={playNextStep}
-                className="w-full btn-electric px-5 py-4 rounded-xl font-bold flex items-center justify-center gap-3 overflow-hidden group relative"
-              >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <Play className="w-5 h-5 fill-current relative z-10" />
-                <span className="relative z-10">顯示提示步驟</span>
-              </button>
+                <button
+                  onClick={() => handleDifficultyClick(difficulty, true)}
+                  className="w-full py-4 rounded-xl glass-card border-2 border-indigo-100/50 text-indigo-500 font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-all flex items-center justify-center gap-2 group active:scale-95 shadow-sm"
+                >
+                  <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                  重新產生題目
+                </button>
+              </div>
 
-              <button
-                onClick={checkSubmission}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-4 rounded-xl font-bold shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-3"
-              >
-                <CheckCircle className="w-5 h-5" />
-                送出答案
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={playNextStep}
+                  className="w-full btn-electric px-5 py-4 rounded-xl font-bold flex items-center justify-center gap-3 overflow-hidden group relative"
+                >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <Play className="w-5 h-5 fill-current relative z-10" />
+                  <span className="relative z-10">顯示提示</span>
+                </button>
 
-              <button
-                onClick={() => setShowConfirmModal(true)}
-                className="w-full bg-white border border-red-100 text-red-500 px-5 py-4 rounded-xl font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-3 shadow-sm"
-              >
-                <Eye className="w-5 h-5" />
-                直接顯示答案
-              </button>
-              {isChallengeMode && (
-                <div className="text-[10px] text-center text-slate-400 font-bold mt-2 animate-pulse">
-                  挑戰模式中，輔助功能已暫停
-                </div>
-              )}
+                <button
+                  onClick={checkSubmission}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-4 rounded-xl font-bold shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-3"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  送出答案
+                </button>
+
+                <button
+                  onClick={() => setShowConfirmModal(true)}
+                  className="w-full bg-white border border-red-100 text-red-500 px-5 py-4 rounded-xl font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-3 shadow-sm"
+                >
+                  <Eye className="w-5 h-5" />
+                  直接顯示答案
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1455,9 +1445,9 @@ export default function SudokuApp() {
         {/* === 中欄: 數獨盤面與輸入區 (Desktop: Center, Mobile: Top) === */}
         <div className="flex-1 flex flex-col items-center order-1 xl:order-2 w-full min-w-[300px]">
           {/* 盤面容器 */}
-          <div className="w-full max-w-[540px] relative">
-            {/* 座標 A-I */}
-            <div className="grid grid-cols-9 ml-8 mb-2 text-center select-none">
+          <div className="w-full max-w-full sm:max-w-[540px] relative mx-auto px-0.5 sm:px-0">
+            {/* 座標 A-I – 手機隱藏 */}
+            <div className="hidden sm:grid grid-cols-9 ml-8 mb-2 text-center select-none">
               {["A", "B", "C", "D", "E", "F", "G", "H", "I"].map((char) => (
                 <div
                   key={char}
@@ -1469,8 +1459,8 @@ export default function SudokuApp() {
             </div>
 
             <div className="flex">
-              {/* 座標 1-9 */}
-              <div className="w-8 flex flex-col justify-around text-center select-none mr-0.5">
+              {/* 座標 1-9 – 手機隱藏 */}
+              <div className="hidden sm:flex w-8 flex-col justify-around text-center select-none mr-0.5">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                   <div
                     key={num}
@@ -1482,13 +1472,15 @@ export default function SudokuApp() {
               </div>
 
               {/* Grid */}
-              <div className="flex-1 aspect-square grid grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] border-2 md:border-4 border-slate-800 bg-slate-800 gap-[1px] select-none shadow-2xl rounded-sm overflow-hidden">
+              <div className={`flex-1 aspect-square grid grid-cols-9 grid-rows-9 border-2 md:border-4 border-slate-800 bg-slate-800 gap-px select-none ${isChallengeMode ? "" : "shadow-2xl"} rounded-sm overflow-hidden`}>
                 {grid.map((row, r) =>
                   row.map((val, c) => {
                     const isInitial = initialGrid[r][c] !== EMPTY;
                     const isSelected =
                       selectedCell?.r === r && selectedCell?.c === c;
+                    
                     const isHighlighted =
+                      !isChallengeMode &&
                       highlightNum &&
                       (val === highlightNum || notes[r][c].has(highlightNum));
                     const cellNotes = Array.from(notes[r][c]).sort(
@@ -1504,14 +1496,14 @@ export default function SudokuApp() {
                           if (val !== EMPTY) setHighlightNum(val);
                         }}
                         className={`
-                                            relative cursor-pointer transition-all duration-200 flex items-center justify-center overflow-hidden
+                                            relative cursor-pointer flex items-center justify-center overflow-hidden
                                             ${(c + 1) % 3 === 0 && c !== 8 ? "mr-[2px]" : ""} 
                                             ${(r + 1) % 3 === 0 && r !== 8 ? "mb-[2px]" : ""}
-                                            ${isSelected ? "ring-inset ring-4 ring-indigo-500/50 z-10 shadow-lg" : ""}
+                                            ${isSelected ? "ring-inset ring-4 ring-indigo-500/50 z-10" : ""}
                                             
                                             ${
                                               isSelected
-                                                ? "bg-indigo-100"
+                                                ? "bg-indigo-100/90"
                                                 : isError
                                                   ? "bg-red-50"
                                                   : isInitial
@@ -1526,29 +1518,26 @@ export default function SudokuApp() {
                                                 ? "text-slate-900 font-black"
                                                 : isError
                                                   ? "text-red-500 font-bold"
-                                                  : "text-brand-electric font-bold"
+                                                  : "text-(--color-brand-electric) font-bold"
                                             }
                                         `}
                       >
-                        {val === EMPTY && cellNotes.length > 0 && (
-                          <div className="absolute inset-0 p-[2px] grid grid-cols-3 grid-rows-3 pointer-events-none opacity-80">
-                            {cellNotes.map((n) => (
+                        {/* Selection Pulse Removed for Performance */}
+                        {val === EMPTY && notes[r][c].size > 0 && (
+                          <div className="absolute inset-0 p-px sm:p-[3px] grid grid-cols-3 grid-rows-3 pointer-events-none gap-0">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                               <div
                                 key={n}
-                                className="flex items-center justify-center text-[8px] sm:text-[10px] leading-none text-slate-400 font-bold"
-                                style={{
-                                  gridColumn: ((n - 1) % 3) + 1,
-                                  gridRow: Math.floor((n - 1) / 3) + 1,
-                                }}
+                                className="flex items-center justify-center text-[8px] sm:text-[10px] md:text-[11px] leading-none text-slate-400/90 font-bold"
                               >
-                                {n}
+                                {notes[r][c].has(n) ? n : ""}
                               </div>
                             ))}
                           </div>
                         )}
                         {val !== EMPTY && (
                           <span
-                            className={`text-xl sm:text-2xl md:text-3xl leading-none transition-transform ${!isInitial ? "animate-number-pop" : ""}`}
+                            className={`text-xl sm:text-2xl md:text-3xl leading-none ${!isInitial ? "font-bold text-(--color-brand-electric)" : ""}`}
                           >
                             {val}
                           </span>
@@ -1564,7 +1553,7 @@ export default function SudokuApp() {
           </div>
 
           {/* 輸入鍵盤 */}
-          <div className="mt-6 w-full max-w-[540px]">
+          <div className="mt-4 sm:mt-6 w-full max-w-full sm:max-w-[540px] mx-auto">
             <div className="flex justify-between items-center mb-2 px-1">
               <span className="text-xs sm:text-sm font-medium text-slate-600 bg-white px-2 py-1 rounded border border-slate-200">
                 {selectedCell
@@ -1576,35 +1565,44 @@ export default function SudokuApp() {
                 className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition shadow-sm ${isNoteMode ? "bg-amber-100 text-amber-700 ring-2 ring-amber-400" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"}`}
               >
                 <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">筆記: </span>
+                <span className="hidden sm:inline">編輯候選數模式: </span>
                 <span>{isNoteMode ? "ON" : "OFF"}</span>
               </button>
             </div>
 
             <div className="grid grid-cols-9 gap-1.5 sm:gap-2.5">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                <button
-                  key={num}
-                  onClick={() => handleNumberInput(num)}
-                  className="aspect-square flex items-center justify-center glass-card rounded-xl text-xl sm:text-2xl font-black text-slate-700 hover:bg-brand-electric hover:text-white active:scale-90 shadow-sm"
-                >
-                  {num}
-                </button>
-              ))}
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+                const count = grid.flat().filter((v) => v === num).length;
+                const isCompleted = count >= 9;
+
+                return (
+                  <button
+                    key={num}
+                    onClick={() => handleNumberInput(num)}
+                    className={`aspect-square flex flex-col items-center justify-center ${isChallengeMode ? "bg-white border border-slate-200" : "glass-card"} rounded-xl relative overflow-hidden group
+                      text-slate-700 hover:bg-(--color-brand-electric) hover:text-white active:bg-(--color-brand-electric) active:text-white shadow-sm
+                    `}
+                  >
+                    <span className="text-xl sm:text-2xl font-black">
+                      {num}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="grid grid-cols-2 gap-3 mt-3">
               <button
                 onClick={() => handleNumberInput(0)}
-                className="py-3.5 flex items-center justify-center gap-2 bg-red-50 border border-red-100 rounded-xl text-red-600 font-bold hover:bg-red-100 transition-all shadow-sm active:scale-95 group"
+                className="py-3.5 flex items-center justify-center gap-2 bg-red-50 border border-red-100 rounded-xl text-red-600 font-bold hover:bg-red-100 shadow-sm active:scale-95 group"
               >
-                <Trash2 className="w-5 h-5 group-hover:rotate-12 transition-transform" />{" "}
+                <Trash2 className="w-5 h-5 group-hover:rotate-12" />{" "}
                 清除
               </button>
               <button
                 onClick={undo}
                 disabled={history.length === 0}
-                className="py-3.5 flex items-center justify-center gap-2 glass-card rounded-xl disabled:opacity-40 text-slate-700 font-bold active:scale-95"
+                className={`py-3.5 flex items-center justify-center gap-2 ${isChallengeMode ? "bg-white border border-slate-200" : "glass-card"} rounded-xl disabled:opacity-40 text-slate-700 font-bold active:scale-95`}
               >
                 <RotateCcw className="w-5 h-5" /> 上一步
               </button>
@@ -1612,20 +1610,20 @@ export default function SudokuApp() {
           </div>
         </div>
 
-        {/* === 右欄: 解題步驟提示 (Desktop: Right, Mobile: Bottom) === */}
+        {/* === 右欄: AI解題提示 (Desktop: Right, Mobile: Bottom) === */}
         {/* 加寬至 w-[500px] 以減少換行 */}
-        <div className="w-full xl:w-[500px] flex flex-col gap-4 order-3 xl:order-3 shrink-0 h-[400px] xl:h-auto xl:self-stretch">
+        <div className={`w-full xl:w-[500px] flex flex-col gap-4 order-3 xl:order-3 shrink-0 h-[400px] xl:h-auto xl:self-stretch transition-all duration-300 ${isChallengeMode ? "hidden xl:flex xl:opacity-0 xl:invisible xl:pointer-events-none" : "flex opacity-100 visible"}`}>
           <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col h-full overflow-hidden">
             <h3 className="font-semibold text-slate-700 mb-2 flex items-center gap-2 pb-2 border-b bg-white">
-              <List className="w-4 h-4" /> 解題步驟提示
+              <List className="w-4 h-4" /> 解題提示
             </h3>
 
             <div className="flex-1 overflow-y-auto pr-2">
               {solveSteps.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm italic opacity-60">
                   <Brain className="w-8 h-8 mb-2" />
-                  <p>
-                    點擊左側「顯示提示步驟」
+                  <p className="text-center">
+                    點擊左側「顯示提示」
                     <br />
                     獲取AI解題思路
                   </p>
