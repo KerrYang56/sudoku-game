@@ -18,7 +18,8 @@ import {
   Clock,
   List,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Star,
 } from 'lucide-react';
 
 // --- 數獨核心邏輯與工具函數 ---
@@ -93,7 +94,7 @@ const solveSudokuBacktrack = (board) => {
 };
 
 // 生成數獨
-const generateSudoku = (difficulty = 'medium') => {
+const generateSudoku = (difficulty = 1) => {
   let board = Array(SIZE).fill().map(() => Array(SIZE).fill(EMPTY));
   
   // 隨機填充對角線上的三個 3x3 宮格
@@ -104,18 +105,102 @@ const generateSudoku = (difficulty = 'medium') => {
   solveSudokuBacktrack(board);
   const solution = board.map(row => [...row]);
   
-  let attempts = difficulty === 'easy' ? 30 : difficulty === 'medium' ? 45 : 55;
+  // Map numeric difficulty to removals count
+  const attemptsMap = {
+      1: 30, // Easy (入門)
+      2: 40, // Medium (初級)
+      3: 48, // Hard (中級)
+      4: 55, // Expert (高級)
+      5: 62  // Master (專家)
+  };
+
+  // Create a puzzle by removing numbers while ensuring unique solution
+  let attempts = attemptsMap[difficulty] || 30;
+  if (typeof difficulty === 'string') {
+       if (difficulty === 'easy') attempts = 30;
+       else if (difficulty === 'medium') attempts = 40;
+       else if (difficulty === 'hard') attempts = 55;
+  }
+
   const puzzle = board.map(row => [...row]);
   
-  while (attempts > 0) {
-    let row = Math.floor(Math.random() * SIZE);
-    let col = Math.floor(Math.random() * SIZE);
-    if (puzzle[row][col] !== EMPTY) {
-      puzzle[row][col] = EMPTY;
-      attempts--;
-    }
+  // Create a list of all positions
+  let positions = [];
+  for(let r=0; r<SIZE; r++) {
+      for(let c=0; c<SIZE; c++) {
+          positions.push({r, c});
+      }
   }
+  // Shuffle positions
+  positions.sort(() => Math.random() - 0.5);
+
+  let countRemoved = 0;
+  for (let i = 0; i < positions.length && countRemoved < attempts; i++) {
+      const {r, c} = positions[i];
+      if (puzzle[r][c] !== EMPTY) {
+          const removedVal = puzzle[r][c];
+          puzzle[r][c] = EMPTY;
+          
+          // Check if key is still unique
+          const solutions = countSolutions(puzzle.map(row=>[...row]));
+          if (solutions !== 1) {
+              // Not unique, put it back
+              puzzle[r][c] = removedVal;
+          } else {
+              countRemoved++;
+          }
+      }
+  }
+  
   return { puzzle, solution };
+};
+
+// Helper: Check if placing num at board[row][col] is valid
+const isSafe = (board, row, col, num) => {
+    // Check row
+    for(let x = 0; x < SIZE; x++)
+        if(board[row][x] === num) return false;
+
+    // Check col
+    for(let x = 0; x < SIZE; x++)
+        if(board[x][col] === num) return false;
+
+    // Check 3x3 box
+    const startRow = row - row % 3, startCol = col - col % 3;
+    for(let i = 0; i < 3; i++)
+        for(let j = 0; j < 3; j++)
+            if(board[i + startRow][j + startCol] === num) return false;
+
+    return true;
+};
+
+// Helper: Count solutions (to ensure uniqueness)
+const countSolutions = (board) => {
+    let count = 0;
+    
+    const solve = (b) => {
+        for (let row = 0; row < SIZE; row++) {
+            for (let col = 0; col < SIZE; col++) {
+                if (b[row][col] === EMPTY) {
+                    for (let num = 1; num <= 9; num++) {
+                        if (isSafe(b, row, col, num)) {
+                            b[row][col] = num;
+                            if (solve(b)) {
+                                count++;
+                                if (count > 1) return true; // More than 1 solution found
+                            }
+                            b[row][col] = EMPTY;
+                        }
+                    }
+                    return false;
+                }
+            }
+        }
+        return true; // Solved
+    };
+
+    solve(board);
+    return count;
 };
 
 const fillBox = (board, row, col) => {
@@ -128,6 +213,7 @@ const fillBox = (board, row, col) => {
       board[row + i][col + j] = num;
     }
   }
+  return true;
 };
 
 const isSafeInBox = (board, rowStart, colStart, num) => {
@@ -147,7 +233,7 @@ const findNextLogicalStep = (board, currentNotes) => {
   const candidatesMap = getAllCandidatesMap(board);
 
   // 策略 1: 摒除法 (Hidden Single)
-  // 檢查宮 (Box)
+  // 檢查九宮格 (Box)
   for (let br = 0; br < 3; br++) {
     for (let bc = 0; bc < 3; bc++) {
       for (let num = 1; num <= 9; num++) {
@@ -168,7 +254,7 @@ const findNextLogicalStep = (board, currentNotes) => {
           return {
              type: 'hidden-single-box',
              r, c, val: num,
-             desc: `【宮摒除法】觀察 ${getCoord(br * 3, bc * 3)} 所在的九宮格。數字 ${num} 在此宮格內受到其他行列的限制，只剩下 ${getCoord(r, c)} 這個位置可以填入。`
+             desc: `【九宮格摒除法】觀察 ${getCoord(br * 3, bc * 3)} 所在的九宮格。數字 ${num} 在此宮格內受到其他行列的限制，只剩下 ${getCoord(r, c)} 這個位置可以填入。`
           };
         }
       }
@@ -410,7 +496,16 @@ const formatTime = (seconds) => {
     const [isPlayingChallenge, setIsPlayingChallenge] = useState(false); 
     const [timer, setTimer] = useState(0);
     const timerRef = useRef(null);
-  
+
+    // Persistence State
+    const [showResumeModal, setShowResumeModal] = useState(false);
+    const [difficulty, setDifficulty] = useState(1); // Track difficulty (number 1-5) for save
+    const [isGameActive, setIsGameActive] = useState(false); // New flag to prevent premature saving
+    
+    // Difficulty Confirmation State
+    const [showDiffConfirmModal, setShowDiffConfirmModal] = useState(false);
+    const [pendingDifficulty, setPendingDifficulty] = useState(null);
+
     // 捲動 Ref
     const messagesEndRef = useRef(null);
   
@@ -457,8 +552,8 @@ const formatTime = (seconds) => {
       }
     };
   
-    const startNewGame = useCallback((difficulty) => {
-      const { puzzle, solution } = generateSudoku(difficulty);
+    const startNewGame = useCallback((newDifficulty = 1) => {
+      const { puzzle, solution } = generateSudoku(newDifficulty);
       setGrid(puzzle.map(row => [...row]));
       setInitialGrid(puzzle.map(row => [...row]));
       setSolutionGrid(solution);
@@ -473,6 +568,8 @@ const formatTime = (seconds) => {
       setShowWinModal(false);
       setShowIncompleteModal(false);
       setIsSettingsOpen(false);
+      setDifficulty(newDifficulty); // Update difficulty state
+      setIsGameActive(true); // Enable auto-save
   
       // 計時器設定
       setTimer(0);
@@ -497,6 +594,7 @@ const formatTime = (seconds) => {
       setShowConfirmModal(false);
       setIsSettingsOpen(false);
       setIsPlayingChallenge(false); 
+      setIsGameActive(true); 
     };
   
     const finishManualInput = () => {
@@ -584,6 +682,45 @@ const formatTime = (seconds) => {
         }
       }
     }, [selectedCell, isEditMode, initialGrid, errorCells, isNoteMode, grid, notes]);
+
+  const toggleChallengeMode = () => {
+    if (!isChallengeMode) {
+        // Turning ON Challenge Mode
+        // Reset grid to initial state (clear answers)
+        const newGrid = initialGrid.map(row => [...row]);
+        setGrid(newGrid);
+        setHistory([]); 
+        setErrorCells(new Set());
+        setTimer(0);
+        setIsChallengeMode(true);
+        setIsPlayingChallenge(true); // Start timer immediately
+    } else {
+        // Turning OFF Challenge Mode
+        setIsChallengeMode(false);
+        setIsPlayingChallenge(false);
+        setTimer(0);
+    }
+  };
+
+  const handleDifficultyClick = (level) => {
+      if (level === difficulty) return;
+      
+      // Prompt if a game is active
+      if (isGameActive && !showWinModal) {
+          setPendingDifficulty(level);
+          setShowDiffConfirmModal(true);
+      } else {
+          startNewGame(level);
+      }
+  };
+
+  const confirmDifficultyChange = () => {
+      if (pendingDifficulty) {
+          startNewGame(pendingDifficulty);
+          setShowDiffConfirmModal(false);
+          setPendingDifficulty(null);
+      }
+  };
   
     const undo = () => {
       if (history.length === 0) return;
@@ -651,11 +788,116 @@ const formatTime = (seconds) => {
         setNotes(newNotes);
     };
   
+    // --- Persistence Logic ---
+
+    // Load Game Implementation
+    const loadGame = useCallback(() => {
+        try {
+            const savedData = localStorage.getItem('sudoku-game-save');
+            if (savedData) {
+                const { 
+                    grid: savedGrid, 
+                    initialGrid: savedInitialGrid, 
+                    solutionGrid: savedSolutionGrid, 
+                    notes: savedNotes, 
+                    history: savedHistory, 
+                    timer: savedTimer, 
+                    isChallengeMode: savedIsChallengeMode, 
+                    isPlayingChallenge: savedIsPlayingChallenge,
+                    difficulty: savedDifficulty
+                } = JSON.parse(savedData);
+
+                setGrid(savedGrid);
+                setInitialGrid(savedInitialGrid);
+                setSolutionGrid(savedSolutionGrid);
+                // Convert notes back to Sets
+                setNotes(savedNotes.map(row => row.map(cell => new Set(cell))));
+                // Restore history notes as Sets
+                setHistory(savedHistory.map(h => ({
+                    ...h,
+                    notes: h.notes.map(r => r.map(c => new Set(c)))
+                })));
+                
+                // If resuming Challenge Mode, enforce reset behavior
+                if (savedIsChallengeMode) {
+                    setTimer(0); 
+                    setIsPlayingChallenge(true);
+                } else {
+                    setTimer(savedTimer || 0);
+                    setIsPlayingChallenge(savedIsPlayingChallenge);
+                }
+                
+                setIsChallengeMode(savedIsChallengeMode);
+
+                // Handle legacy string difficulty or missing difficulty
+                let loadedDifficulty = savedDifficulty;
+                if (typeof savedDifficulty === 'string') {
+                    if (savedDifficulty === 'easy') loadedDifficulty = 1;
+                    else if (savedDifficulty === 'medium') loadedDifficulty = 2; 
+                    else if (savedDifficulty === 'hard') loadedDifficulty = 4;
+                    else loadedDifficulty = 1;
+                }
+                setDifficulty(loadedDifficulty || 1);
+
+                setShowResumeModal(false);
+                setIsGameActive(true); // Enable auto-save after load
+            }
+        } catch (error) {
+            console.error("Failed to load game:", error);
+            startNewGame(1);
+        }
+    }, [startNewGame]);
+
+    // Initialization Effect
     useEffect(() => {
-      startNewGame('easy');
+      const savedData = localStorage.getItem('sudoku-game-save');
+      if (savedData) {
+          // Pause timer if it was running, to wait for user decision
+          setIsPlayingChallenge(false); 
+          setShowResumeModal(true);
+      } else {
+          startNewGame(1);
+      }
       return () => clearInterval(timerRef.current);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Auto-Save Effect
+    useEffect(() => {
+        // Don't save if in resume modal, edit mode, or if game is not active yet
+        if (showResumeModal || isEditMode || !initialGrid || !isGameActive) return;
+        
+        // Don't save if game is won
+        if (showWinModal) {
+             localStorage.removeItem('sudoku-game-save');
+             return;
+        }
+
+        const saveData = {
+            grid,
+            initialGrid,
+            solutionGrid,
+            notes: notes.map(row => row.map(cell => Array.from(cell))), // Sets to Arrays
+            history: history.map(h => ({
+                ...h,
+                notes: h.notes.map(r => r.map(c => Array.from(c)))
+            })),
+            timer,
+            isChallengeMode,
+            isPlayingChallenge,
+            difficulty
+        };
+
+        // For Challenge Mode: Only save the initial state, not the progress
+        if (isChallengeMode) {
+            saveData.grid = initialGrid; // Reset grid to initial
+            saveData.notes = Array(9).fill().map(() => Array(9).fill().map(() => [])); // Empty notes
+            saveData.history = []; // Empty history
+            saveData.timer = 0; // Reset timer (since we don't save time in challenge mode)
+        }
+
+        localStorage.setItem('sudoku-game-save', JSON.stringify(saveData));
+    }, [grid, initialGrid, solutionGrid, notes, history, timer, isChallengeMode, isPlayingChallenge, difficulty, showResumeModal, isEditMode, showWinModal, isGameActive]);
   
     // 計時器邏輯
     useEffect(() => {
@@ -720,6 +962,39 @@ const formatTime = (seconds) => {
           </div>
       )}
 
+      {/* 恢復進度 Modal */}
+      {showResumeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+                  <div className="flex items-center gap-3 text-indigo-600 mb-4">
+                      <Save className="w-8 h-8" />
+                      <h3 className="text-xl font-bold">發現未完成的遊戲</h3>
+                  </div>
+                  <p className="text-slate-600 mb-6 leading-relaxed">
+                      您上次似乎還有沒解完的數獨，是否要繼續挑戰？
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                      <button 
+                          onClick={() => {
+                              setShowResumeModal(false);
+                              localStorage.removeItem('sudoku-game-save');
+                              startNewGame(1);
+                          }} 
+                          className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200"
+                      >
+                          開新局
+                      </button>
+                      <button 
+                          onClick={loadGame} 
+                          className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium shadow-md hover:bg-indigo-700"
+                      >
+                          繼續遊玩
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* 未完成提示 Modal */}
       {showIncompleteModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -765,6 +1040,39 @@ const formatTime = (seconds) => {
           </div>
       )}
 
+      {/* 難度變更確認 Modal */}
+      {showDiffConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
+                  <div className="flex items-center gap-3 text-indigo-600 mb-4">
+                      <AlertCircle className="w-8 h-8" />
+                      <h3 className="text-xl font-bold">重新開始新局？</h3>
+                  </div>
+                  <p className="text-slate-600 mb-6 leading-relaxed text-center font-medium">
+                      {"確認要重新產生 "}
+                      <span className="text-indigo-600 font-bold">
+                      {'★'.repeat(pendingDifficulty)} {['', '入門', '初級', '中級', '高級', '專家'][pendingDifficulty]} (Lv.{pendingDifficulty})
+                      </span>
+                      {" 級題目嗎？"}
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                      <button 
+                          onClick={() => setShowDiffConfirmModal(false)} 
+                          className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200"
+                      >
+                          取消
+                      </button>
+                      <button 
+                          onClick={confirmDifficultyChange} 
+                          className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium shadow-md hover:bg-indigo-700"
+                      >
+                          確定產生
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Header */}
       <header className="w-full bg-white shadow-sm border-b border-slate-200 py-3 px-4 flex flex-col sm:flex-row items-center justify-between mb-4 md:mb-6 sticky top-0 z-30">
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
@@ -773,7 +1081,7 @@ const formatTime = (seconds) => {
                 <h1 className="text-xl md:text-2xl font-bold text-slate-700">數獨大師</h1>
             </div>
             {/* 手機版顯示計時器於 Header */}
-            {isPlayingChallenge && (
+            {(isPlayingChallenge || isChallengeMode) && (
                 <div className="sm:hidden flex items-center gap-2 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
                     <Clock className="w-4 h-4 text-indigo-500" />
                     <span className="font-mono font-bold text-indigo-700">{formatTime(timer)}</span>
@@ -783,7 +1091,7 @@ const formatTime = (seconds) => {
         
         {/* 桌面版計時器與標語 */}
         <div className="hidden sm:flex items-center gap-6">
-            {isPlayingChallenge && (
+            {(isPlayingChallenge || isChallengeMode) && (
                 <div className="flex items-center gap-2 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100 shadow-inner">
                     <Clock className="w-5 h-5 text-indigo-500" />
                     <span className="font-mono text-xl font-bold text-indigo-700">{formatTime(timer)}</span>
@@ -798,75 +1106,127 @@ const formatTime = (seconds) => {
         
         {/* === 左欄: 設定面板 (Desktop: Left, Mobile: Middle) === */}
         {/* 縮減左側寬度至 72 (288px) */}
-        <div className="w-full xl:w-72 flex flex-col gap-4 order-2 xl:order-1 shrink-0">
-          
-          <div className="lg:hidden w-full">
-            <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className="w-full flex items-center justify-between px-4 py-3 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-700 font-medium">
-                <span className="flex items-center gap-2"><Settings className="w-4 h-4" /> 遊戲選單 & 設定</span>
-                <ChevronRight className={`w-4 h-4 transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`} />
-            </button>
-          </div>
-
-          <div className={`${isSettingsOpen ? 'block' : 'hidden'} lg:block bg-white p-4 rounded-xl shadow-sm border border-slate-200`}>
+        <div className={`
+                fixed inset-0 z-40 bg-white/95 backdrop-blur-sm p-6 transform transition-transform duration-300 xl:relative xl:inset-auto xl:bg-transparent xl:backdrop-blur-none xl:p-0 xl:translate-x-0 xl:w-72 flex flex-col gap-6
+                ${isSettingsOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
             
-            <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-               <Settings className="w-4 h-4" /> 遊戲設定
-            </h3>
+            {/* Mobile Header in Menu */}
+            <div className="flex xl:hidden justify-between items-center mb-4">
+                <span className="font-bold text-lg text-slate-700">遊戲設定</span>
+                <button onClick={() => setIsSettingsOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
+                    <X className="w-6 h-6 text-slate-500" />
+                </button>
+            </div>
 
-            {/* 挑戰模式開關 */}
-            <div className="mb-4 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-                <div className="flex items-center justify-between">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 w-full">
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Settings className="w-4 h-4" /> 遊戲設定
+                </h2>
+                
+                {/* 挑戰模式切換 */}
+                <div className="flex items-center justify-between mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <div className="flex items-center gap-2">
-                        <Trophy className={`w-5 h-5 ${isChallengeMode ? 'text-indigo-600' : 'text-slate-400'}`} />
-                        <span className="text-sm font-bold text-slate-700">挑戰計時模式</span>
+                        <Trophy className={`w-5 h-5 ${isChallengeMode ? 'text-yellow-500' : 'text-slate-400'}`} />
+                        <span className={`font-bold ${isChallengeMode ? 'text-slate-700' : 'text-slate-400'}`}>挑戰計時模式</span>
                     </div>
                     <button 
-                        onClick={() => setIsChallengeMode(!isChallengeMode)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isChallengeMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                        onClick={toggleChallengeMode}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${isChallengeMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
                     >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${isChallengeMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isChallengeMode ? 'translate-x-6' : 'translate-x-0'}`} />
                     </button>
                 </div>
-                {isChallengeMode && <p className="text-xs text-indigo-600 mt-2">完成題目後將自動停止計時並顯示成績。</p>}
-            </div>
-            
-            {!isEditMode ? (
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                    <button onClick={() => startNewGame('easy')} className="px-3 py-2 bg-green-50 text-green-700 border border-green-100 rounded-lg text-sm hover:bg-green-100 transition">簡單</button>
-                    <button onClick={() => startNewGame('medium')} className="px-3 py-2 bg-yellow-50 text-yellow-700 border border-yellow-100 rounded-lg text-sm hover:bg-yellow-100 transition">中等</button>
-                    <button onClick={() => startNewGame('hard')} className="px-3 py-2 bg-red-50 text-red-700 border border-red-100 rounded-lg text-sm hover:bg-red-100 transition">困難</button>
-                    <button onClick={startManualInput} className="px-3 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm hover:bg-slate-100 transition flex items-center justify-center gap-1"><Edit3 className="w-3 h-3"/> 自訂</button>
+
+                <div className="flex flex-col gap-3 mb-6">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600 font-bold text-sm">難度選擇</span>
+                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                        {difficulty === 1 && "入門"}
+                        {difficulty === 2 && "初級"}
+                        {difficulty === 3 && "中級"}
+                        {difficulty === 4 && "高級"}
+                        {difficulty === 5 && "專家"} (Lv.{difficulty})
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <button
+                        key={level}
+                        onClick={() => handleDifficultyClick(level)}
+                        className="group relative focus:outline-none transition-all hover:scale-110 active:scale-95 p-1"
+                        title={`Lv.${level}`}
+                      >
+                        <Star
+                          className={`w-8 h-8 transition-colors duration-200 ${
+                            level <= difficulty
+                              ? "text-yellow-400 fill-yellow-400 drop-shadow-sm"
+                              : "text-slate-200 fill-slate-100"
+                          }`}
+                        />
+                        {/* 懸浮效果 (Desktop) */}
+                        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                            {['入門', '初級', '中級', '高級', '專家'][level-1]}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-            ) : (
-                <div className="mb-4">
-                     <p className="text-xs text-orange-600 mb-2">輸入題目後鎖定。</p>
-                     <button onClick={finishManualInput} className="w-full px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2">
-                         <Save className="w-4 h-4" /> 鎖定並開始
-                     </button>
-                </div>
-            )}
-            
-            <hr className="my-3 border-slate-100"/>
-            
-            <div className="space-y-2">
-                <button onClick={autoFillNotes} disabled={isEditMode} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 text-slate-700 text-sm">
-                    <Pencil className="w-3 h-3" /> 自動填寫筆記
-                </button>
-                <button onClick={playNextStep} disabled={isEditMode} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md disabled:opacity-50 disabled:shadow-none">
-                    <Play className="w-4 h-4" /> 顯示提示步驟
-                </button>
-                
-                {/* 新增: 送出答案按鈕 */}
-                <button onClick={checkSubmission} disabled={isEditMode || !solutionGrid} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md disabled:opacity-50 disabled:shadow-none mt-2">
-                    <CheckCircle className="w-4 h-4" /> 送出答案
+
+                {!isEditMode ? (
+                  <button 
+                      onClick={startManualInput}
+                      className="w-full py-3 rounded-lg bg-white border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition mb-3 flex items-center justify-center gap-2 group"
+                  >
+                      <Edit3 className="w-4 h-4 group-hover:scale-110 transition" />
+                      自訂填寫題目
+                  </button>
+                ) : (
+                  <div className="mb-4 bg-orange-50 p-3 rounded-lg border border-orange-100">
+                       <p className="text-xs text-orange-600 mb-2 font-bold text-center">輸入題目模式</p>
+                       <button 
+                           onClick={finishManualInput} 
+                           className="w-full px-3 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2 font-bold transition-transform active:scale-95"
+                       >
+                           <Save className="w-4 h-4" /> 鎖定並開始
+                       </button>
+                  </div>
+                )}
+
+                <button 
+                    onClick={autoFillNotes} 
+                    className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 mb-3 border border-indigo-100 shadow-sm"
+                >
+                    <Pencil className="w-4 h-4" />
+                    自動填寫筆記
                 </button>
 
-                <button onClick={() => setShowConfirmModal(true)} disabled={isEditMode || !solutionGrid} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-lg hover:bg-red-100 shadow-sm disabled:opacity-50 disabled:shadow-none transition">
-                    <Eye className="w-4 h-4" /> 直接顯示答案
+                <button 
+                    onClick={playNextStep} 
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2 mb-3"
+                >
+                    <Play className="w-4 h-4 fill-current" />
+                    顯示提示步驟
+                </button>
+
+                <button 
+                    onClick={checkSubmission} 
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 transition flex items-center justify-center gap-2 mb-3"
+                >
+                    <CheckCircle className="w-4 h-4" />
+                    送出答案
+                </button>
+
+                <button 
+                    onClick={() => setShowConfirmModal(true)} 
+                    className="w-full bg-red-50 hover:bg-red-100 text-red-500 px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 border border-red-100"
+                >
+                    <Eye className="w-4 h-4" />
+                    直接顯示答案
                 </button>
             </div>
-          </div>
         </div>
+
 
         {/* === 中欄: 數獨盤面與輸入區 (Desktop: Center, Mobile: Top) === */}
         <div className="flex-1 flex flex-col items-center order-1 xl:order-2 w-full min-w-[300px]">
