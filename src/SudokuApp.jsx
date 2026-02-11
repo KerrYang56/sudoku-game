@@ -1074,156 +1074,164 @@ const formatTime = (seconds) => {
       )}
 
       {/* Header */}
-      <header className="w-full bg-white shadow-sm border-b border-slate-200 py-3 px-4 flex flex-col sm:flex-row items-center justify-between mb-4 md:mb-6 sticky top-0 z-30">
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-            <div className="flex items-center gap-2">
-                <Brain className="w-6 h-6 md:w-8 md:h-8 text-indigo-600" />
-                <h1 className="text-xl md:text-2xl font-bold text-slate-700">數獨大師</h1>
+      <header className="w-full bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200 py-4 px-6 flex flex-col sm:flex-row items-center justify-between mb-6 md:mb-8 sticky top-0 z-30 transition-all duration-300">
+        <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex items-center gap-3">
+                <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-100 animate-pulse-slow">
+                    <Brain className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                </div>
+                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-slate-800 to-indigo-600 bg-clip-text text-transparent">數獨大師</h1>
             </div>
             {/* 手機版顯示計時器於 Header */}
             {(isPlayingChallenge || isChallengeMode) && (
-                <div className="sm:hidden flex items-center gap-2 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                <div className="sm:hidden flex items-center gap-2 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100 shadow-sm">
                     <Clock className="w-4 h-4 text-indigo-500" />
-                    <span className="font-mono font-bold text-indigo-700">{formatTime(timer)}</span>
+                    <span className="font-mono font-bold text-indigo-700 tracking-tight">{formatTime(timer)}</span>
                 </div>
             )}
         </div>
         
         {/* 桌面版計時器與標語 */}
-        <div className="hidden sm:flex items-center gap-6">
+        <div className="hidden sm:flex items-center gap-8">
             {(isPlayingChallenge || isChallengeMode) && (
-                <div className="flex items-center gap-2 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100 shadow-inner">
-                    <Clock className="w-5 h-5 text-indigo-500" />
-                    <span className="font-mono text-xl font-bold text-indigo-700">{formatTime(timer)}</span>
+                <div className="flex items-center gap-3 bg-indigo-50/50 backdrop-blur-sm px-5 py-2 rounded-full border border-indigo-100 shadow-inner group">
+                    <Clock className="w-5 h-5 text-indigo-500 group-hover:scale-110 transition-transform" />
+                    <span className="font-mono text-2xl font-black text-indigo-700 tracking-tighter">{formatTime(timer)}</span>
                 </div>
             )}
-            <p className="text-slate-400 text-xs">邏輯推演與解題教學</p>
+            <p className="text-slate-400 text-sm font-medium tracking-wide italic">邏輯推演與解題教學</p>
         </div>
       </header>
 
-      {/* Main Layout Container - 加寬到 max-w-[1600px] */}
-      <div className="flex flex-col xl:flex-row gap-6 items-start w-full max-w-[1600px] px-4 justify-center">
+      {/* Main Layout Container - 加寬到 max-w-[1700px] */}
+      <div className="flex flex-col xl:flex-row gap-6 items-start w-full max-w-[1600px] px-6 justify-center pb-12">
         
         {/* === 左欄: 設定面板 (Desktop: Left, Mobile: Middle) === */}
-        {/* 縮減左側寬度至 72 (288px) */}
         <div className={`
-                fixed inset-0 z-40 bg-white/95 backdrop-blur-sm p-6 transform transition-transform duration-300 xl:relative xl:inset-auto xl:bg-transparent xl:backdrop-blur-none xl:p-0 xl:translate-x-0 xl:w-72 flex flex-col gap-6
-                ${isSettingsOpen ? 'translate-x-0' : '-translate-x-full'}
+                fixed inset-0 z-40 bg-white/95 backdrop-blur-xl p-6 transform transition-all duration-500 xl:relative xl:inset-auto xl:bg-transparent xl:backdrop-blur-none xl:p-0 xl:translate-x-0 xl:w-72 flex flex-col gap-6
+                ${isSettingsOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 xl:opacity-100'}
             `}>
             
             {/* Mobile Header in Menu */}
-            <div className="flex xl:hidden justify-between items-center mb-4">
-                <span className="font-bold text-lg text-slate-700">遊戲設定</span>
-                <button onClick={() => setIsSettingsOpen(false)} className="p-2 rounded-full hover:bg-slate-100">
-                    <X className="w-6 h-6 text-slate-500" />
+            <div className="flex xl:hidden justify-between items-center mb-6">
+                <span className="font-bold text-2xl text-slate-800">遊戲設定</span>
+                <button onClick={() => setIsSettingsOpen(false)} className="p-2.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
+                    <X className="w-6 h-6" />
                 </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 w-full">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Settings className="w-4 h-4" /> 遊戲設定
-                </h2>
-                
-                {/* 挑戰模式切換 */}
-                <div className="flex items-center justify-between mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-2">
-                        <Trophy className={`w-5 h-5 ${isChallengeMode ? 'text-yellow-500' : 'text-slate-400'}`} />
-                        <span className={`font-bold ${isChallengeMode ? 'text-slate-700' : 'text-slate-400'}`}>挑戰計時模式</span>
+            {/* 挑戰模式卡片 */}
+            <div className="glass-card p-4 rounded-xl flex items-center justify-between group">
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg transition-colors ${isChallengeMode ? 'bg-amber-100' : 'bg-slate-100'}`}>
+                        <Trophy className={`w-5 h-5 ${isChallengeMode ? 'text-amber-600' : 'text-slate-400'}`} />
                     </div>
-                    <button 
-                        onClick={toggleChallengeMode}
-                        className={`w-12 h-6 rounded-full transition-colors relative ${isChallengeMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                    >
-                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${isChallengeMode ? 'translate-x-6' : 'translate-x-0'}`} />
-                    </button>
+                    <div>
+                        <div className={`font-bold text-base ${isChallengeMode ? 'text-slate-800' : 'text-slate-500'}`}>挑戰計時模式</div>
+                        <div className="text-[10px] text-slate-400 font-medium tracking-tight">紀錄最快解題速度</div>
+                    </div>
                 </div>
+                <button 
+                    onClick={toggleChallengeMode}
+                    className={`w-14 h-7 rounded-full transition-all relative flex items-center px-1 ${isChallengeMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                >
+                    <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-all transform ${isChallengeMode ? 'translate-x-7' : 'translate-x-0'}`} />
+                </button>
+            </div>
 
-                <div className="flex flex-col gap-3 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600 font-bold text-sm">難度選擇</span>
-                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-                        {difficulty === 1 && "入門"}
-                        {difficulty === 2 && "初級"}
-                        {difficulty === 3 && "中級"}
-                        {difficulty === 4 && "高級"}
-                        {difficulty === 5 && "專家"} (Lv.{difficulty})
+            {/* 難度選擇卡片 */}
+            <div className="glass-card p-4 rounded-xl flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-indigo-500" />
+                        <span className="text-sm font-bold text-slate-800">難度設定</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 shadow-sm uppercase">
+                        {['', '入門', '初級', '中級', '高級', '專家'][difficulty]}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100/50">
+                </div>
+                
+                <div className="flex items-center justify-between bg-white/50 p-2 rounded-xl border border-white/50 shadow-inner">
                     {[1, 2, 3, 4, 5].map((level) => (
                       <button
                         key={level}
                         onClick={() => handleDifficultyClick(level)}
                         className="group relative focus:outline-none transition-all hover:scale-110 active:scale-95 p-1"
-                        title={`Lv.${level}`}
                       >
                         <Star
-                          className={`w-8 h-8 transition-colors duration-200 ${
+                          className={`w-8 h-8 md:w-9 md:h-9 transition-all duration-300 ${
                             level <= difficulty
-                              ? "text-yellow-400 fill-yellow-400 drop-shadow-sm"
-                              : "text-slate-200 fill-slate-100"
+                              ? "text-brand-amber fill-brand-amber drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] scale-110"
+                              : "text-slate-200 fill-slate-100 hover:text-slate-300"
                           }`}
                         />
-                        {/* 懸浮效果 (Desktop) */}
-                        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                            {['入門', '初級', '中級', '高級', '專家'][level-1]}
-                        </div>
                       </button>
                     ))}
-                  </div>
+                </div>
+            </div>
+
+            {/* 功能按鈕區 */}
+            <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 gap-3">
+                    {!isEditMode ? (
+                      <button 
+                          onClick={startManualInput}
+                          className="w-full py-4 rounded-xl glass-card border-2 border-dashed border-slate-200 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group"
+                      >
+                          <Edit3 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                          自訂填寫題目
+                      </button>
+                    ) : (
+                      <div className="glass-card p-2 rounded-xl border-amber-200 bg-amber-50/50">
+                           <button 
+                               onClick={finishManualInput} 
+                               className="w-full py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 font-black tracking-wide transition-all active:scale-95"
+                           >
+                               <Save className="w-5 h-5" /> 鎖定並開始
+                           </button>
+                      </div>
+                    )}
                 </div>
 
-                {!isEditMode ? (
-                  <button 
-                      onClick={startManualInput}
-                      className="w-full py-3 rounded-lg bg-white border-2 border-dashed border-slate-300 text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition mb-3 flex items-center justify-center gap-2 group"
-                  >
-                      <Edit3 className="w-4 h-4 group-hover:scale-110 transition" />
-                      自訂填寫題目
-                  </button>
-                ) : (
-                  <div className="mb-4 bg-orange-50 p-3 rounded-lg border border-orange-100">
-                       <p className="text-xs text-orange-600 mb-2 font-bold text-center">輸入題目模式</p>
-                       <button 
-                           onClick={finishManualInput} 
-                           className="w-full px-3 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2 font-bold transition-transform active:scale-95"
-                       >
-                           <Save className="w-4 h-4" /> 鎖定並開始
-                       </button>
-                  </div>
-                )}
+                <div className={`space-y-3 transition-all duration-500 ${isChallengeMode ? 'opacity-40 grayscale-[0.5] pointer-events-none blur-[1px]' : ''}`}>
+                    <button 
+                        onClick={autoFillNotes} 
+                        className="w-full glass-card hover:bg-indigo-50/50 text-indigo-600 px-5 py-4 rounded-xl font-bold flex items-center justify-center gap-3"
+                    >
+                        <Pencil className="w-5 h-5 text-indigo-500" />
+                        自動填寫筆記
+                    </button>
 
-                <button 
-                    onClick={autoFillNotes} 
-                    className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 mb-3 border border-indigo-100 shadow-sm"
-                >
-                    <Pencil className="w-4 h-4" />
-                    自動填寫筆記
-                </button>
+                    <button 
+                        onClick={playNextStep} 
+                        className="w-full btn-electric px-5 py-4 rounded-xl font-bold flex items-center justify-center gap-3 overflow-hidden group relative"
+                    >
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                        <Play className="w-5 h-5 fill-current relative z-10" />
+                        <span className="relative z-10">顯示提示步驟</span>
+                    </button>
 
-                <button 
-                    onClick={playNextStep} 
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2 mb-3"
-                >
-                    <Play className="w-4 h-4 fill-current" />
-                    顯示提示步驟
-                </button>
+                    <button 
+                        onClick={checkSubmission} 
+                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-4 rounded-xl font-bold shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-3"
+                    >
+                        <CheckCircle className="w-5 h-5" />
+                        送出答案
+                    </button>
 
-                <button 
-                    onClick={checkSubmission} 
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-emerald-200 transition flex items-center justify-center gap-2 mb-3"
-                >
-                    <CheckCircle className="w-4 h-4" />
-                    送出答案
-                </button>
-
-                <button 
-                    onClick={() => setShowConfirmModal(true)} 
-                    className="w-full bg-red-50 hover:bg-red-100 text-red-500 px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 border border-red-100"
-                >
-                    <Eye className="w-4 h-4" />
-                    直接顯示答案
-                </button>
+                    <button 
+                        onClick={() => setShowConfirmModal(true)} 
+                        className="w-full bg-white border border-red-100 text-red-500 px-5 py-4 rounded-xl font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-3 shadow-sm"
+                    >
+                        <Eye className="w-5 h-5" />
+                        直接顯示答案
+                    </button>
+                    {isChallengeMode && (
+                        <div className="text-[10px] text-center text-slate-400 font-bold mt-2 animate-pulse">
+                            挑戰模式中，輔助功能已暫停
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -1232,25 +1240,25 @@ const formatTime = (seconds) => {
         <div className="flex-1 flex flex-col items-center order-1 xl:order-2 w-full min-w-[300px]">
             
             {/* 盤面容器 */}
-            <div className="w-full max-w-[450px] relative">
+            <div className="w-full max-w-[540px] relative">
                 
                 {/* 座標 A-I */}
-                <div className="grid grid-cols-9 ml-6 mb-1 text-center select-none">
-                    {['A','B','C','D','E','F','G','H','I'].map(char => (
-                        <div key={char} className="text-[10px] md:text-xs font-bold text-slate-400">{char}</div>
-                    ))}
-                </div>
+                    <div className="grid grid-cols-9 ml-8 mb-2 text-center select-none">
+                        {['A','B','C','D','E','F','G','H','I'].map(char => (
+                            <div key={char} className="text-xs md:text-sm font-bold text-slate-400">{char}</div>
+                        ))}
+                    </div>
 
                 <div className="flex">
                     {/* 座標 1-9 */}
-                    <div className="w-6 flex flex-col justify-around text-center select-none mr-0.5">
+                    <div className="w-8 flex flex-col justify-around text-center select-none mr-0.5">
                         {[1,2,3,4,5,6,7,8,9].map(num => (
-                            <div key={num} className="text-[10px] md:text-xs font-bold text-slate-400 h-full flex items-center justify-center">{num}</div>
+                            <div key={num} className="text-xs md:text-sm font-bold text-slate-400 h-full flex items-center justify-center">{num}</div>
                         ))}
                     </div>
 
                     {/* Grid */}
-                    <div className="flex-1 aspect-square grid grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] border-2 md:border-4 border-slate-800 bg-slate-800 gap-[1px] select-none shadow-lg">
+                    <div className="flex-1 aspect-square grid grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] border-2 md:border-4 border-slate-800 bg-slate-800 gap-[1px] select-none shadow-2xl rounded-sm overflow-hidden">
                         {grid.map((row, r) => (
                             row.map((val, c) => {
                                 const isInitial = initialGrid[r][c] !== EMPTY;
@@ -1267,34 +1275,38 @@ const formatTime = (seconds) => {
                                             if(val !== EMPTY) setHighlightNum(val);
                                         }}
                                         className={`
-                                            relative cursor-pointer transition-colors duration-75 flex items-center justify-center
+                                            relative cursor-pointer transition-all duration-200 flex items-center justify-center overflow-hidden
                                             ${(c + 1) % 3 === 0 && c !== 8 ? 'mr-[2px]' : ''} 
                                             ${(r + 1) % 3 === 0 && r !== 8 ? 'mb-[2px]' : ''}
-                                            ${isSelected ? 'ring-2 ring-indigo-500 z-10' : ''}
+                                            ${isSelected ? 'ring-inset ring-4 ring-indigo-500/50 z-10 shadow-lg' : ''}
                                             
-                                            ${isSelected ? 'bg-indigo-200' : 
-                                              isError ? 'bg-red-100' : 
-                                              isInitial ? 'bg-slate-200' : 
-                                              isHighlighted ? 'bg-indigo-50' : 
-                                              'bg-white'
+                                            ${isSelected ? 'bg-indigo-100' : 
+                                              isError ? 'bg-red-50' : 
+                                              isInitial ? 'bg-slate-100' : 
+                                              isHighlighted ? 'bg-indigo-50/80 shadow-inner' : 
+                                              'bg-white hover:bg-slate-50'
                                             }
 
-                                            ${isInitial ? 'text-slate-900 font-extrabold' : 
-                                              isError ? 'text-red-600 font-bold' : 
-                                              'text-blue-600 font-medium'
+                                            ${isInitial ? 'text-slate-900 font-black' : 
+                                              isError ? 'text-red-500 font-bold' : 
+                                              'text-brand-electric font-bold'
                                             }
                                         `}
                                     >
                                         {val === EMPTY && cellNotes.length > 0 && (
-                                            <div className="absolute top-0 left-0 w-full h-full p-[1px] grid grid-cols-3 grid-rows-3 pointer-events-none">
+                                            <div className="absolute inset-0 p-[2px] grid grid-cols-3 grid-rows-3 pointer-events-none opacity-80">
                                                 {cellNotes.map(n => (
-                                                   <div key={n} className="flex items-center justify-center text-[7px] sm:text-[9px] md:text-[10px] leading-none text-slate-500 font-medium" style={{ gridColumn: ((n-1)%3)+1, gridRow: Math.floor((n-1)/3)+1 }}>{n}</div>
+                                                   <div key={n} className="flex items-center justify-center text-[8px] sm:text-[10px] leading-none text-slate-400 font-bold" style={{ gridColumn: ((n-1)%3)+1, gridRow: Math.floor((n-1)/3)+1 }}>{n}</div>
                                                 ))}
                                             </div>
                                         )}
                                         {val !== EMPTY && (
-                                            <span className="text-xl sm:text-2xl md:text-3xl leading-none">{val}</span>
+                                            <span className={`text-xl sm:text-2xl md:text-3xl leading-none transition-transform ${!isInitial ? 'animate-number-pop' : ''}`}>
+                                                {val}
+                                            </span>
                                         )}
+                                        {/* Subtle Border Overlay */}
+                                        <div className="absolute inset-0 border border-slate-100/30 pointer-events-none" />
                                     </div>
                                 );
                             })
@@ -1304,7 +1316,7 @@ const formatTime = (seconds) => {
             </div>
 
             {/* 輸入鍵盤 */}
-            <div className="mt-4 w-full max-w-[450px]">
+            <div className="mt-6 w-full max-w-[540px]">
                 <div className="flex justify-between items-center mb-2 px-1">
                      <span className="text-xs sm:text-sm font-medium text-slate-600 bg-white px-2 py-1 rounded border border-slate-200">
                          {selectedCell ? `位置: ${getCoord(selectedCell.r, selectedCell.c)}` : '請點選格子'}
@@ -1316,20 +1328,24 @@ const formatTime = (seconds) => {
                     </button>
                 </div>
 
-                <div className="grid grid-cols-9 gap-1 sm:gap-2">
+                <div className="grid grid-cols-9 gap-1.5 sm:gap-2.5">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                        <button key={num} onClick={() => handleNumberInput(num)} className="aspect-square flex items-center justify-center bg-white border border-slate-200 shadow-sm rounded-lg text-lg sm:text-xl md:text-2xl font-medium text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 active:scale-95 transition touch-manipulation">
+                        <button 
+                            key={num} 
+                            onClick={() => handleNumberInput(num)} 
+                            className="aspect-square flex items-center justify-center glass-card rounded-xl text-xl sm:text-2xl font-black text-slate-700 hover:bg-brand-electric hover:text-white active:scale-90 shadow-sm"
+                        >
                             {num}
                         </button>
                     ))}
                 </div>
                 
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                     <button onClick={() => handleNumberInput(0)} className="py-2.5 sm:py-3 flex items-center justify-center gap-2 bg-red-50 border border-red-100 rounded-lg text-red-600 hover:bg-red-100 transition shadow-sm active:scale-95">
-                        <Trash2 className="w-4 h-4" /> 清除
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                     <button onClick={() => handleNumberInput(0)} className="py-3.5 flex items-center justify-center gap-2 bg-red-50 border border-red-100 rounded-xl text-red-600 font-bold hover:bg-red-100 transition-all shadow-sm active:scale-95 group">
+                        <Trash2 className="w-5 h-5 group-hover:rotate-12 transition-transform" /> 清除
                     </button>
-                     <button onClick={undo} disabled={history.length === 0} className="py-2.5 sm:py-3 flex items-center justify-center gap-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 text-slate-700 shadow-sm active:scale-95">
-                        <RotateCcw className="w-4 h-4" /> 復原
+                     <button onClick={undo} disabled={history.length === 0} className="py-3.5 flex items-center justify-center gap-2 glass-card rounded-xl disabled:opacity-40 text-slate-700 font-bold active:scale-95">
+                        <RotateCcw className="w-5 h-5" /> 上一步
                     </button>
                 </div>
             </div>
