@@ -551,7 +551,16 @@ export default function SudokuApp() {
 
   // Persistence State
   const [showResumeModal, setShowResumeModal] = useState(false);
-  const [difficulty, setDifficulty] = useState(1); // Track difficulty (number 1-5) for save
+  const [difficulty, setDifficulty] = useState(() => {
+    const saved = localStorage.getItem("sudoku_last_difficulty");
+    return saved ? parseInt(saved, 10) : 1;
+  }); // Track difficulty (number 1-5) for save
+  
+  // Save difficulty to localStorage
+  useEffect(() => {
+    localStorage.setItem("sudoku_last_difficulty", difficulty);
+  }, [difficulty]);
+
   const [isGameActive, setIsGameActive] = useState(false); // New flag to prevent premature saving
 
   // Difficulty Confirmation State
@@ -961,9 +970,9 @@ export default function SudokuApp() {
       }
     } catch (error) {
       console.error("Failed to load game:", error);
-      startNewGame(1);
+      startNewGame(difficulty);
     }
-  }, [startNewGame]);
+  }, [difficulty, startNewGame]);
 
   // Initialization Effect
   useEffect(() => {
@@ -973,7 +982,7 @@ export default function SudokuApp() {
       setIsPlayingChallenge(false);
       setShowResumeModal(true);
     } else {
-      startNewGame(1);
+      startNewGame(difficulty);
     }
     return () => clearInterval(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1603,12 +1612,12 @@ export default function SudokuApp() {
           </div>
         </div>
 
-        {/* === 右欄: 解題過程 (Desktop: Right, Mobile: Bottom) === */}
+        {/* === 右欄: 解題步驟提示 (Desktop: Right, Mobile: Bottom) === */}
         {/* 加寬至 w-[500px] 以減少換行 */}
         <div className="w-full xl:w-[500px] flex flex-col gap-4 order-3 xl:order-3 shrink-0 h-[400px] xl:h-auto xl:self-stretch">
           <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col h-full overflow-hidden">
             <h3 className="font-semibold text-slate-700 mb-2 flex items-center gap-2 pb-2 border-b bg-white">
-              <List className="w-4 h-4" /> 解題過程
+              <List className="w-4 h-4" /> 解題步驟提示
             </h3>
 
             <div className="flex-1 overflow-y-auto pr-2">
@@ -1622,39 +1631,41 @@ export default function SudokuApp() {
                   </p>
                 </div>
               ) : (
-                <ul className="space-y-3">
-                  {solveSteps.map((step, idx) => (
-                    <li
-                      key={idx}
-                      className={`text-sm p-3 rounded-lg border ${step.type === "note-elimination" ? "bg-amber-50 border-amber-200" : step.type === "info" ? "bg-slate-50 border-slate-200" : step.type === "backtrack" ? "bg-red-50 border-red-200" : "bg-indigo-50 border-indigo-100 shadow-sm"}`}
-                    >
-                      {step.val && step.type !== "note-elimination" && (
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-indigo-700 bg-indigo-200 w-5 h-5 flex items-center justify-center rounded text-xs">
-                            {idx + 1}
-                          </span>
-                          <span className="font-semibold text-slate-800">
-                            {getCoord(step.r, step.c)} 填入 {step.val}
-                          </span>
-                        </div>
-                      )}
-                      {step.type === "note-elimination" && (
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-amber-700 bg-amber-200 w-5 h-5 flex items-center justify-center rounded text-xs">
-                            {idx + 1}
-                          </span>
-                          <span className="font-semibold text-slate-800">
-                            排除候選數
-                          </span>
-                        </div>
-                      )}
-                      <p className="text-slate-600 leading-relaxed text-xs">
-                        {step.desc}
-                      </p>
-                    </li>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </ul>
+                <div className="max-h-[min(510px,65vh)] overflow-y-auto pr-1.5 custom-scrollbar-thin">
+                  <ul className="space-y-3">
+                    {solveSteps.map((step, idx) => (
+                      <li
+                        key={idx}
+                        className={`text-sm p-3 rounded-lg border ${step.type === "note-elimination" ? "bg-amber-50 border-amber-200" : step.type === "info" ? "bg-slate-50 border-slate-200" : step.type === "backtrack" ? "bg-red-50 border-red-200" : "bg-indigo-50 border-indigo-100 shadow-sm"}`}
+                      >
+                        {step.val && step.type !== "note-elimination" && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-indigo-700 bg-indigo-200 w-5 h-5 flex items-center justify-center rounded text-xs">
+                              {idx + 1}
+                            </span>
+                            <span className="font-semibold text-slate-800">
+                              {getCoord(step.r, step.c)} 填入 {step.val}
+                            </span>
+                          </div>
+                        )}
+                        {step.type === "note-elimination" && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-amber-700 bg-amber-200 w-5 h-5 flex items-center justify-center rounded text-xs">
+                              {idx + 1}
+                            </span>
+                            <span className="font-semibold text-slate-800">
+                              排除候選數
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-slate-600 leading-relaxed text-xs">
+                          {step.desc}
+                        </p>
+                      </li>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </ul>
+                </div>
               )}
             </div>
           </div>
