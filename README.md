@@ -57,6 +57,17 @@
 
 4. 打開瀏覽器前往 <http://localhost:5173> 即可開始遊玩。
 
+### 部署到 Vercel (Optional)
+
+本專案支援一鍵部署到 Vercel：
+
+1. 將專案推送到 GitHub。
+2. 前往 [Vercel](https://vercel.com) 並登入。
+3. 點擊 **"Add New..."** -> **"Project"**。
+4. 選擇您的 `sudoku-game` repository 並點擊 **"Import"**。
+5. Framework Preset 應會自動偵測為 `Vite`。
+6. 點擊 **"Deploy"**，等待約 1 分鐘即可完成！
+
 ## 專案結構
 
 ```txt
@@ -70,6 +81,3 @@ src/
 ## 📝 License
 
 [MIT License](LICENSE)
-
----
-Created by Gemini
