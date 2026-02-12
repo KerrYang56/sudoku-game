@@ -587,6 +587,10 @@ export default function SudokuApp() {
 
   // 捲動 Ref
   const messagesEndRef = useRef(null);
+  const gridRef = useRef(null);
+
+  // 提示文字
+  const [hintOverlay, setHintOverlay] = useState(null);
 
   // 送出答案檢查
   const checkSubmission = () => {
@@ -894,6 +898,7 @@ export default function SudokuApp() {
           setSelectedCell({ r: step.updates[0].r, c: step.updates[0].c });
         }
       } else {
+        setSelectedCell({ r: step.r, c: step.c });
         setGrid((prevGrid) => {
           const newGrid = prevGrid.map((row) => [...row]);
           newGrid[step.r][step.c] = step.val;
@@ -906,15 +911,22 @@ export default function SudokuApp() {
           updateImplicitNotes(newNotes, step.r, step.c, step.val);
           return newNotes;
         });
-
-        // Removed setHighlightNum(step.val) to avoid confusing global highlighting
-        // setHighlightNum(step.val);
       }
+
+      // 在手機端顯示提示文字並捲動到盤面
+      setHintOverlay({ step, index: solveSteps.length + 1 });
+
+      // 等 React 渲染完成後再捲動
+      setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 100);
     } else {
       setSolveSteps((prev) => [
         ...prev,
         { desc: "目前邏輯無法推導出下一步。", type: "info" },
       ]);
+
+      setHintOverlay({ step: { desc: "目前邏輯無法推導出下一步。", type: "info" }, index: null });
+
+      setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 100);
     }
   };
 
@@ -1148,7 +1160,7 @@ export default function SudokuApp() {
       {showResumeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
-            <div className="flex items-center gap-3 text-indigo-600 mb-4">
+            <div className="flex items-center gap-3 text-blue-600 mb-4">
               <Save className="w-8 h-8" />
               <h3 className="text-xl font-bold">發現未完成的遊戲</h3>
             </div>
@@ -1168,7 +1180,7 @@ export default function SudokuApp() {
               </button>
               <button
                 onClick={loadGame}
-                className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium shadow-md hover:bg-indigo-700"
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium shadow-md hover:bg-blue-700"
               >
                 繼續遊玩
               </button>
@@ -1191,7 +1203,7 @@ export default function SudokuApp() {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowIncompleteModal(false)}
-                className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium shadow-md"
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium shadow-md"
               >
                 好，我再檢查
               </button>
@@ -1217,7 +1229,7 @@ export default function SudokuApp() {
                 <span className="text-slate-400 text-sm uppercase tracking-wider font-bold">
                   總耗時
                 </span>
-                <div className="text-4xl font-black text-indigo-600 font-mono mt-1">
+                <div className="text-4xl font-black text-blue-600 font-mono mt-1">
                   {formatTime(timer)}
                 </div>
               </div>
@@ -1225,7 +1237,7 @@ export default function SudokuApp() {
 
             <button
               onClick={() => setShowWinModal(false)}
-              className="w-full px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold shadow-lg hover:bg-indigo-700 hover:scale-[1.02] transition"
+              className="w-full px-6 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 hover:scale-[1.02] transition"
             >
               太棒了！
             </button>
@@ -1237,13 +1249,13 @@ export default function SudokuApp() {
       {showDiffConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
-            <div className="flex items-center gap-3 text-indigo-600 mb-4">
+            <div className="flex items-center gap-3 text-blue-600 mb-4">
               <AlertCircle className="w-8 h-8" />
               <h3 className="text-xl font-bold">重新開始新局？</h3>
             </div>
             <p className="text-slate-600 mb-6 leading-relaxed text-center font-medium">
               {"確認要重新產生 "}
-              <span className="text-indigo-600 font-bold">
+              <span className="text-blue-600 font-bold">
                 {"★".repeat(pendingDifficulty)}{" "}
                 {
                   ["", "入門", "初級", "中級", "高級", "專家"][
@@ -1263,7 +1275,7 @@ export default function SudokuApp() {
               </button>
               <button
                 onClick={confirmDifficultyChange}
-                className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium shadow-md hover:bg-indigo-700"
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium shadow-md hover:bg-blue-700"
               >
                 確定產生
               </button>
@@ -1276,7 +1288,7 @@ export default function SudokuApp() {
       <header className={`w-full ${isChallengeMode ? "bg-white border-b border-slate-200" : "bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200"} py-4 px-6 flex flex-col sm:flex-row items-center justify-between mb-6 md:mb-8 sticky top-0 z-30 transition-all duration-300`}>
         <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-100">
+            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-100">
               <Brain className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
             <h1 className="text-2xl md:text-3xl font-bold bg-linear-to-r from-slate-800 to-(--color-brand-electric) bg-clip-text text-transparent">
@@ -1285,9 +1297,9 @@ export default function SudokuApp() {
           </div>
           {/* 手機版顯示計時器於 Header */}
           {(isPlayingChallenge || isChallengeMode) && (
-            <div className="sm:hidden flex items-center gap-2 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100 shadow-sm">
-              <Clock className="w-4 h-4 text-indigo-500" />
-              <span className="font-mono font-bold text-indigo-700 tracking-tight">
+            <div className="sm:hidden flex items-center gap-2 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm">
+              <Clock className="w-4 h-4 text-blue-500" />
+              <span className="font-mono font-bold text-blue-700 tracking-tight">
                 {formatTime(timer)}
               </span>
             </div>
@@ -1297,9 +1309,9 @@ export default function SudokuApp() {
         {/* 桌面版計時器與標語 */}
         <div className="hidden sm:flex items-center gap-8">
           {(isPlayingChallenge || isChallengeMode) && (
-            <div className="flex items-center gap-3 bg-indigo-50/50 backdrop-blur-sm px-5 py-2 rounded-full border border-indigo-100 shadow-inner group">
-              <Clock className="w-5 h-5 text-indigo-500 group-hover:scale-110 transition-transform" />
-              <span className="font-mono text-2xl font-black text-indigo-700 tracking-tighter">
+            <div className="flex items-center gap-3 bg-blue-50/50 backdrop-blur-sm px-5 py-2 rounded-full border border-blue-100 shadow-inner group">
+              <Clock className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" />
+              <span className="font-mono text-2xl font-black text-blue-700 tracking-tighter">
                 {formatTime(timer)}
               </span>
             </div>
@@ -1340,7 +1352,7 @@ export default function SudokuApp() {
             </div>
             <button
               onClick={toggleChallengeMode}
-              className={`w-14 h-7 rounded-full transition-all relative flex items-center px-1 ${isChallengeMode ? "bg-indigo-600" : "bg-slate-300"}`}
+              className={`w-14 h-7 rounded-full transition-all relative flex items-center px-1 ${isChallengeMode ? "bg-blue-600" : "bg-slate-300"}`}
             >
               <div
                 className={`w-5 h-5 rounded-full bg-white shadow-sm transition-all transform ${isChallengeMode ? "translate-x-7" : "translate-x-0"}`}
@@ -1353,12 +1365,12 @@ export default function SudokuApp() {
             <div className="glass-card p-4 rounded-xl flex flex-col gap-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-indigo-500" />
+                  <Settings className="w-4 h-4 text-blue-500" />
                   <span className="text-base font-bold text-slate-800">
                     難度設定
                   </span>
                 </div>
-                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 shadow-sm uppercase">
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 shadow-sm uppercase">
                   {["", "入門", "初級", "中級", "高級", "專家"][difficulty]}
                 </span>
               </div>
@@ -1387,7 +1399,7 @@ export default function SudokuApp() {
                 {!isEditMode ? (
                   <button
                     onClick={startManualInput}
-                    className="w-full py-4 rounded-xl glass-card border-2 border-dashed border-slate-200 text-slate-500 font-bold hover:border-indigo-400 hover:text-(--color-brand-electric) hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group"
+                    className="w-full py-4 rounded-xl glass-card border-2 border-dashed border-slate-200 text-slate-500 font-bold hover:border-blue-400 hover:text-(--color-brand-electric) hover:bg-blue-50 transition-all flex items-center justify-center gap-2 group"
                   >
                     <Edit3 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                     自訂題目
@@ -1396,7 +1408,7 @@ export default function SudokuApp() {
                   <div className="glass-card p-2 rounded-xl border-amber-200 bg-amber-50/50">
                     <button
                       onClick={finishManualInput}
-                      className="w-full py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 font-black tracking-wide transition-all active:scale-95"
+                      className="w-full py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg shadow-blue-100 flex items-center justify-center gap-2 font-black tracking-wide transition-all active:scale-95"
                     >
                       <Save className="w-5 h-5" /> 鎖定並開始
                     </button>
@@ -1405,7 +1417,7 @@ export default function SudokuApp() {
 
                 <button
                   onClick={() => handleDifficultyClick(difficulty, true)}
-                  className="w-full py-4 rounded-xl glass-card border-2 border-indigo-100/50 text-indigo-500 font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-all flex items-center justify-center gap-2 group active:scale-95 shadow-sm"
+                  className="w-full py-4 rounded-xl glass-card border-2 border-blue-100/50 text-blue-500 font-bold hover:bg-blue-50 hover:border-blue-200 transition-all flex items-center justify-center gap-2 group active:scale-95 shadow-sm"
                 >
                   <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
                   重新產生題目
@@ -1445,7 +1457,19 @@ export default function SudokuApp() {
         {/* === 中欄: 數獨盤面與輸入區 (Desktop: Center, Mobile: Top) === */}
         <div className="flex-1 flex flex-col items-center order-1 xl:order-2 w-full min-w-[300px]">
           {/* 盤面容器 */}
-          <div className="w-full max-w-full sm:max-w-[540px] relative mx-auto px-0.5 sm:px-0">
+          <div ref={gridRef} className="w-full max-w-full sm:max-w-[540px] relative mx-auto px-0.5 sm:px-0">
+            {/* 提示文字（顯示在盤面上方） */}
+            {hintOverlay && (
+              <div className="xl:hidden w-full text-sm bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 mb-2 animate-in fade-in duration-200">
+                {hintOverlay.step.val && hintOverlay.step.type !== "note-elimination" && (
+                  <div className="font-bold text-violet-600">
+                    {String.fromCharCode(65 + hintOverlay.step.c)}{hintOverlay.step.r + 1}{" "}
+                    填入 {hintOverlay.step.val}
+                  </div>
+                )}
+                <div className="font-medium text-violet-500 mt-0.5">{hintOverlay.step.desc}</div>
+              </div>
+            )}
             {/* 座標 A-I – 手機隱藏 */}
             <div className="hidden sm:grid grid-cols-9 ml-8 mb-2 text-center select-none">
               {["A", "B", "C", "D", "E", "F", "G", "H", "I"].map((char) => (
@@ -1479,10 +1503,6 @@ export default function SudokuApp() {
                     const isSelected =
                       selectedCell?.r === r && selectedCell?.c === c;
                     
-                    const isHighlighted =
-                      !isChallengeMode &&
-                      highlightNum &&
-                      (val === highlightNum || notes[r][c].has(highlightNum));
                     const cellNotes = Array.from(notes[r][c]).sort(
                       (a, b) => a - b,
                     );
@@ -1493,24 +1513,22 @@ export default function SudokuApp() {
                         key={`${r}-${c}`}
                         onClick={() => {
                           setSelectedCell({ r, c });
-                          if (val !== EMPTY) setHighlightNum(val);
+                          setHintOverlay(null);
                         }}
                         className={`
                                             relative cursor-pointer flex items-center justify-center overflow-hidden
                                             ${(c + 1) % 3 === 0 && c !== 8 ? "mr-[2px]" : ""} 
                                             ${(r + 1) % 3 === 0 && r !== 8 ? "mb-[2px]" : ""}
-                                            ${isSelected ? "ring-inset ring-4 ring-indigo-500/50 z-10" : ""}
+                                            ${isSelected ? "ring-inset ring-4 ring-blue-500/50 z-10" : ""}
                                             
                                             ${
                                               isSelected
-                                                ? "bg-indigo-100/90"
+                                                ? "bg-blue-100/90"
                                                 : isError
                                                   ? "bg-red-50"
                                                   : isInitial
                                                     ? "bg-slate-100"
-                                                    : isHighlighted
-                                                      ? "bg-indigo-50/80 shadow-inner"
-                                                      : "bg-white hover:bg-slate-50"
+                                                    : "bg-white hover:bg-slate-50"
                                             }
 
                                             ${
@@ -1634,11 +1652,11 @@ export default function SudokuApp() {
                     {solveSteps.map((step, idx) => (
                       <li
                         key={idx}
-                        className={`text-sm p-3 rounded-lg border ${step.type === "note-elimination" ? "bg-amber-50 border-amber-200" : step.type === "info" ? "bg-slate-50 border-slate-200" : step.type === "backtrack" ? "bg-red-50 border-red-200" : "bg-indigo-50 border-indigo-100 shadow-sm"}`}
+                        className={`text-sm p-3 rounded-lg border ${step.type === "note-elimination" ? "bg-amber-50 border-amber-200" : step.type === "info" ? "bg-slate-50 border-slate-200" : step.type === "backtrack" ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-100 shadow-sm"}`}
                       >
                         {step.val && step.type !== "note-elimination" && (
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold text-indigo-700 bg-indigo-200 w-5 h-5 flex items-center justify-center rounded text-xs">
+                            <span className="font-bold text-blue-700 bg-blue-200 w-5 h-5 flex items-center justify-center rounded text-xs">
                               {idx + 1}
                             </span>
                             <span className="font-semibold text-slate-800">
