@@ -779,7 +779,10 @@ export default function SudokuApp() {
           }
         }
       } else {
-        if (grid[r][c] === num) return;
+        // --- 核心邏輯修改：如果輸入數字相同，則設為 0 (刪除) ---
+        const finalNum = (num !== EMPTY && grid[r][c] === num) ? EMPTY : num;
+        
+        if (grid[r][c] === finalNum) return;
 
         setHistory((prev) => [
           ...prev,
@@ -793,15 +796,15 @@ export default function SudokuApp() {
 
         setGrid((prevGrid) => {
           const newGrid = prevGrid.map((row) => [...row]);
-          newGrid[r][c] = num;
+          newGrid[r][c] = finalNum;
           return newGrid;
         });
 
-        if (num !== 0) {
+        if (finalNum !== EMPTY) {
           setNotes((prevNotes) => {
             const newNotes = prevNotes.map((row) => row.map((s) => new Set(s)));
             newNotes[r][c] = new Set();
-            updateImplicitNotes(newNotes, r, c, num);
+            updateImplicitNotes(newNotes, r, c, finalNum);
             return newNotes;
           });
         }
